@@ -163,5 +163,34 @@ e:\xunlei\data_c\                    # Git仓库根目录
 
 ---
 
+## 9. GitHub Actions 依赖缓存问题
+
+### 错误信息
+```
+Warning: Restore cache failed: Dependencies file is not found in D:\a\-\-. Supported file pattern: go.sum
+```
+
+### 原因
+setup-go@v5 默认在仓库根目录查找 go.sum 文件，但项目在子目录
+
+### 解决方案
+在 setup-go 配置中指定 cache-dependency-path：
+
+```yaml
+- name: Setup Go
+  uses: actions/setup-go@v5
+  with:
+    go-version: '1.21'
+    cache-dependency-path: dataset-tagger/go.sum  # 指定子目录路径
+```
+
+### 注意事项
+1. **必须有 go.sum 文件**：运行 `go mod tidy` 生成
+2. **npm 缓存问题**：如果没有 package-lock.json，不要配置 npm cache，否则会报错
+3. **go mod download**：在 wails build 之前运行，确保依赖下载
+
+---
+
 *文档创建日期：2026/1/1*
+*最后更新：2026/1/1*
 *项目：AI数据集打标器 (Dataset Tagger)*
