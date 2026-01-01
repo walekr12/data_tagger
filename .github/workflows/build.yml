@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+          cache-dependency-path: dataset-tagger/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,6 +26,10 @@ jobs:
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Go dependencies
+        run: go mod download
+        working-directory: dataset-tagger
 
       - name: Install frontend dependencies
         run: npm install
@@ -50,6 +55,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+          cache-dependency-path: dataset-tagger/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,6 +69,10 @@ jobs:
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Go dependencies
+        run: go mod download
+        working-directory: dataset-tagger
 
       - name: Install frontend dependencies
         run: npm install
@@ -88,6 +98,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+          cache-dependency-path: dataset-tagger/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -96,6 +107,10 @@ jobs:
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Go dependencies
+        run: go mod download
+        working-directory: dataset-tagger
 
       - name: Install frontend dependencies
         run: npm install
