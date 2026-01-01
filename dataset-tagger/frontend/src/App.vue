@@ -134,44 +134,75 @@
         </div>
         
         <div v-else class="flex-1 overflow-y-auto p-4">
-          <div class="grid-container">
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <div v-for="item in pagedItems" :key="item.id"
-                 @click="openEditor(item)"
-                 class="media-card glass-card"
+                 class="media-card-vertical glass-card flex flex-col"
                  :class="{ 
                    'selected-card': item.selected,
                    'highlight-match': selectedTag && item.tags.includes(selectedTag)
                  }">
-              <!-- 选择框 -->
-              <div v-if="showBatchPanel" class="absolute top-2 left-2 z-10" @click.stop>
-                <input type="checkbox" v-model="item.selected" 
-                       class="w-5 h-5 rounded border-cyber-blue bg-transparent cursor-pointer">
+              
+              <!-- 顶部图片区域 -->
+              <div class="relative aspect-square cursor-pointer group" @click="openEditor(item)">
+                <!-- 选择框 -->
+                <div v-if="showBatchPanel" class="absolute top-2 left-2 z-20" @click.stop>
+                  <input type="checkbox" v-model="item.selected" 
+                         class="w-5 h-5 rounded border-cyber-blue bg-cyber-dark/80 cursor-pointer">
+                </div>
+                
+                <!-- 视频��识 -->
+                <span v-if="item.isVideo" class="absolute top-2 right-2 z-10 text-xs px-2 py-1 rounded bg-cyber-purple/80 text-white font-bold">
+                  VIDEO
+                </span>
+                
+                <!-- 修改标识 -->
+                <span v-if="item.modified" class="absolute top-2 right-2 z-10 w-3 h-3 rounded-full bg-cyber-yellow animate-pulse"></span>
+                
+                <!-- 缩略图 -->
+                <img v-if="item.thumbnailData" 
+                     :src="item.thumbnailData" 
+                     :alt="item.id" 
+                     loading="lazy"
+                     class="w-full h-full object-cover rounded-t-lg">
+                <div v-else class="w-full h-full bg-cyber-darker flex items-center justify-center rounded-t-lg">
+                  <div class="text-center">
+                    <svg class="w-10 h-10 text-gray-600 mx-auto animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-xs text-gray-500 mt-1">加载中...</span>
+                  </div>
+                </div>
+                
+                <!-- 悬停遮罩 -->
+                <div class="absolute inset-0 bg-cyber-blue/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span class="px-3 py-1 bg-cyber-blue/80 rounded text-white text-sm">点击编辑</span>
+                </div>
               </div>
               
-              <!-- 视频标识 -->
-              <span v-if="item.isVideo" class="video-badge">VIDEO</span>
-              
-              <!-- 修改标识 -->
-              <span v-if="item.modified" class="absolute top-2 left-2 z-10 w-2 h-2 rounded-full bg-cyber-yellow"></span>
-              
-              <!-- 缩略图 -->
-              <img v-if="item.thumbnailData" :src="item.thumbnailData" :alt="item.id" loading="lazy">
-              <div v-else class="w-full h-full bg-cyber-darker flex items-center justify-center">
-                <svg class="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              
-              <!-- 标签预览 -->
-              <div class="absolute bottom-0 left-0 right-0 p-2 z-10">
-                <div class="flex flex-wrap gap-1">
-                  <span v-for="(tag, idx) in item.tags.slice(0, 3)" :key="idx" 
-                        class="text-xs px-2 py-0.5 rounded bg-black/60 text-cyber-blue truncate max-w-full">
-                    {{ tag }}
-                  </span>
-                  <span v-if="item.tags.length > 3" class="text-xs px-2 py-0.5 rounded bg-black/60 text-gray-400">
-                    +{{ item.tags.length - 3 }}
-                  </span>
+              <!-- 底部标签区域 - 可编辑框 -->
+              <div class="tags-box p-2 border-t border-cyber-blue/20 min-h-[80px] max-h-[120px] overflow-y-auto">
+                <div v-if="editingCardId === item.id" class="h-full">
+                  <textarea 
+                    v-model="editingCardTags"
+                    @blur="saveCardTags(item)"
+                    @keydown.enter.ctrl="saveCardTags(item)"
+                    class="w-full h-full bg-transparent text-xs text-gray-300 resize-none border-none outline-none p-0"
+                    placeholder="输入标签，逗号分隔..."
+                    ref="cardTagInput"
+                  ></textarea>
+                </div>
+                <div v-else @click.stop="startEditCard(item)" class="cursor-text h-full">
+                  <div v-if="item.tags.length > 0" class="flex flex-wrap gap-1">
+                    <span v-for="(tag, idx) in item.tags.slice(0, 8)" :key="idx" 
+                          class="inline-flex items-center text-xs px-2 py-0.5 rounded-full border border-cyber-blue/40 bg-cyber-blue/10 text-cyber-blue hover:bg-cyber-blue/20 transition-colors">
+                      {{ tag }}
+                    </span>
+                    <span v-if="item.tags.length > 8" 
+                          class="text-xs px-2 py-0.5 rounded-full border border-gray-600 text-gray-400">
+                      +{{ item.tags.length - 8 }}
+                    </span>
+                  </div>
+                  <div v-else class="text-xs text-gray-500 italic">点击添加标签...</div>
                 </div>
               </div>
             </div>
@@ -321,7 +352,11 @@ export default {
       // 编辑器
       editingItem: null,
       editingTags: '',
-      previewData: null
+      previewData: null,
+      
+      // 卡片内编辑
+      editingCardId: null,
+      editingCardTags: ''
     }
   },
   
@@ -427,11 +462,16 @@ export default {
     async loadVisibleThumbnails() {
       this.loadingMessage = '正在生成缩略图...'
       
-      for (const item of this.pagedItems) {
-        if (!item.thumbnailData) {
+      // 并行加载缩略图，每批4个
+      const itemsToLoad = this.pagedItems.filter(item => !item.thumbnailData)
+      const batchSize = 4
+      
+      for (let i = 0; i < itemsToLoad.length; i += batchSize) {
+        const batch = itemsToLoad.slice(i, i + batchSize)
+        
+        await Promise.all(batch.map(async (item) => {
           try {
             const thumb = await window.go.main.App.GetThumbnail(item.mediaPath, item.isVideo)
-            // 更新原始数组中的项
             const idx = this.items.findIndex(i => i.id === item.id)
             if (idx !== -1) {
               this.items[idx].thumbnailData = thumb
@@ -439,7 +479,10 @@ export default {
           } catch (err) {
             console.error('生成缩略图失败:', item.mediaPath, err)
           }
-        }
+        }))
+        
+        // 更新进度
+        this.loadingMessage = `正在生成缩略图... (${Math.min(i + batchSize, itemsToLoad.length)}/${itemsToLoad.length})`
       }
     },
     
@@ -643,6 +686,35 @@ export default {
     setStatus(message, type = 'success') {
       this.statusMessage = message
       this.statusType = type
+    },
+    
+    // 卡片内直接编辑
+    startEditCard(item) {
+      this.editingCardId = item.id
+      this.editingCardTags = item.rawTags
+      this.$nextTick(() => {
+        const input = this.$refs.cardTagInput
+        if (input && input[0]) {
+          input[0].focus()
+        }
+      })
+    },
+    
+    async saveCardTags(item) {
+      if (this.editingCardId !== item.id) return
+      
+      const newTags = this.editingCardTags.trim()
+      const idx = this.items.findIndex(i => i.id === item.id)
+      
+      if (idx !== -1 && newTags !== item.rawTags) {
+        this.items[idx].rawTags = newTags
+        this.items[idx].tags = this.parseTags(newTags)
+        this.items[idx].modified = true
+        this.setStatus('标签已修改，请点击保存全部', 'success')
+      }
+      
+      this.editingCardId = null
+      this.editingCardTags = ''
     }
   }
 }

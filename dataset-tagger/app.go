@@ -169,14 +169,22 @@ func (a *App) ScanFolder(folderPath string) ScanResult {
 		a.items = append(a.items, item)
 	}
 
-	// Sort tags by frequency
+	// Sort tags by frequency - only include tags that appear in more than 1 file (common tags)
 	tagInfos := make([]TagInfo, 0, len(a.tagFrequency))
 	for tag, count := range a.tagFrequency {
-		tagInfos = append(tagInfos, TagInfo{Tag: tag, Count: count})
+		// 只统计出现在2个以上文件中的共同标签
+		if count >= 2 {
+			tagInfos = append(tagInfos, TagInfo{Tag: tag, Count: count})
+		}
 	}
 	sort.Slice(tagInfos, func(i, j int) bool {
 		return tagInfos[i].Count > tagInfos[j].Count
 	})
+
+	// 限制返回前100个最常见标签
+	if len(tagInfos) > 100 {
+		tagInfos = tagInfos[:100]
+	}
 
 	return ScanResult{
 		Success:     true,
