@@ -28,16 +28,17 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: frontend
+        working-directory: dataset-tagger/frontend
 
       - name: Build Windows
         run: wails build -platform windows/amd64
+        working-directory: dataset-tagger
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: dataset-tagger-windows
-          path: build/bin/*.exe
+          path: dataset-tagger/build/bin/*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -65,16 +66,17 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: frontend
+        working-directory: dataset-tagger/frontend
 
       - name: Build Linux
         run: wails build -platform linux/amd64
+        working-directory: dataset-tagger
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
           name: dataset-tagger-linux
-          path: build/bin/dataset-tagger
+          path: dataset-tagger/build/bin/dataset-tagger
 
   build-macos:
     runs-on: macos-latest
@@ -97,13 +99,14 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: frontend
+        working-directory: dataset-tagger/frontend
 
       - name: Build macOS
         run: wails build -platform darwin/universal
+        working-directory: dataset-tagger
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: dataset-tagger-macos
-          path: build/bin/*.app
+          path: dataset-tagger/build/bin/*.app
