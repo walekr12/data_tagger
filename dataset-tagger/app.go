@@ -476,7 +476,7 @@ func (a *App) generateVideoThumbnail(videoPath, cachePath string) []byte {
 	return data
 }
 
-// extractFrameAt extracts a frame at specified time
+// extractFrameAt extracts a frame at specified time (silently, no window popup)
 func (a *App) extractFrameAt(videoPath, outputPath, timePos string) error {
 	cmd := exec.Command("ffmpeg",
 		"-ss", timePos,
@@ -484,9 +484,25 @@ func (a *App) extractFrameAt(videoPath, outputPath, timePos string) error {
 		"-vframes", "1",
 		"-vf", "scale=300:-1",
 		"-y",
+		"-loglevel", "quiet",
 		outputPath)
 
+	// 隐藏命令行窗口（Windows特有）
+	cmd.SysProcAttr = getSysProcAttr()
+
 	return cmd.Run()
+}
+
+// RefreshTagStats 刷新标签统计（重新分析共同短语）
+func (a *App) RefreshTagStats() map[string]interface{} {
+	// 重新分析共同短语
+	tagInfos := a.analyzeCommonPhrases()
+
+	return map[string]interface{}{
+		"success": true,
+		"tags":    tagInfos,
+		"message": fmt.Sprintf("统计完成，共 %d 个共同短语", len(tagInfos)),
+	}
 }
 
 // SaveTags saves tags for a specific item
