@@ -30,11 +30,22 @@
           批量操作
         </button>
         
-        <button v-if="hasModifiedItems" @click="saveAllChanges" class="cyber-btn cyber-btn-primary">
-          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- 刷新统计按钮 -->
+        <button v-if="items.length > 0" @click="refreshTagStats" class="cyber-btn flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          刷新统计
+        </button>
+        
+        <!-- 保存全部按钮（始终显示，有修改时高亮） -->
+        <button v-if="items.length > 0" @click="saveAllChanges" 
+                class="cyber-btn flex items-center gap-1"
+                :class="{ 'cyber-btn-primary neon-glow': hasModifiedItems }">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
-          保存全部
+          保存全部 {{ hasModifiedItems ? `(${modifiedCount})` : '' }}
         </button>
       </div>
     </header>
@@ -386,6 +397,10 @@ export default {
       return this.items.some(item => item.modified)
     },
     
+    modifiedCount() {
+      return this.items.filter(item => item.modified).length
+    },
+    
     parsedEditingTags() {
       if (!this.editingTags) return []
       return this.editingTags.split(',').map(t => t.trim()).filter(t => t)
@@ -465,19 +480,62 @@ export default {
         const batch = itemsToLoad.slice(i, i + batchSize)
         
         await Promise.all(batch.map(async (item) => {
-          try {
-            const thumb = await window.go.main.App.GetThumbnail(item.mediaPath, item.isVideo)
-            const idx = this.items.findIndex(i => i.id === item.id)
-            if (idx !== -1) {
-              this.items[idx].thumbnailData = thumb
-            }
-          } catch (err) {
-            console.error('生成缩略图失败:', item.mediaPath, err)
-          }
+          await this.loadThumbnailWithRetry(item, 5) // 最多重试5次
         }))
         
         // 更新进度
         this.loadingMessage = `正在生成缩略图... (${Math.min(i + batchSize, itemsToLoad.length)}/${itemsToLoad.length})`
+      }
+    },
+    
+    // 带重试的缩略图加载
+    async loadThumbnailWithRetry(item, maxRetries = 5, delay = 1000) {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const thumb = await window.go.main.App.GetThumbnail(item.mediaPath, item.isVideo)
+          if (thumb) {
+            const idx = this.items.findIndex(i => i.id === item.id)
+            if (idx !== -1) {
+              this.items[idx].thumbnailData = thumb
+            }
+            return true // 加载成功
+          }
+        } catch (err) {
+          console.warn(`缩略图加载失败 (尝试 ${attempt}/${maxRetries}):`, item.mediaPath, err)
+        }
+        
+        // 如果不是最后一次尝试，等待后重试
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
+      
+      console.error('缩略图加载最终失败:', item.mediaPath)
+      // 设置一个失败标记，显示占位图但允许后续重试
+      const idx = this.items.findIndex(i => i.id === item.id)
+      if (idx !== -1) {
+        this.items[idx].thumbnailFailed = true
+      }
+      return false
+    },
+    
+    // 手动重试加载失败的缩略图
+    async retryFailedThumbnails() {
+      const failedItems = this.pagedItems.filter(item => item.thumbnailFailed && !item.thumbnailData)
+      if (failedItems.length === 0) return
+      
+      this.setStatus(`正在重新加载 ${failedItems.length} 个失败的缩略图...`, 'loading')
+      
+      for (const item of failedItems) {
+        item.thumbnailFailed = false
+        await this.loadThumbnailWithRetry(item, 3)
+      }
+      
+      const stillFailed = failedItems.filter(item => item.thumbnailFailed).length
+      if (stillFailed > 0) {
+        this.setStatus(`${failedItems.length - stillFailed} 个加载成功，${stillFailed} 个仍然失败`, 'error')
+      } else {
+        this.setStatus('所有缩略图加载成功', 'success')
       }
     },
     
@@ -667,6 +725,30 @@ export default {
       this.tags = Object.entries(tagFreq)
         .map(([tag, count]) => ({ tag, count }))
         .sort((a, b) => b.count - a.count)
+    },
+    
+    // 刷新统计 - 调用后端重新分析共同短语
+    async refreshTagStats() {
+      this.setStatus('正在重新统计标签...', 'loading')
+      
+      try {
+        // 调用后端重新分析
+        const result = await window.go.main.App.RefreshTagStats()
+        
+        if (result && result.tags) {
+          this.tags = result.tags
+          this.setStatus(`标签统计已刷新，共 ${this.tags.length} 个共同短语`, 'success')
+        } else {
+          // 如果后端没有这个方法，使用前端统计
+          await this.updateTagStats()
+          this.setStatus(`标签统计已刷新，共 ${this.tags.length} 个标签`, 'success')
+        }
+      } catch (err) {
+        // 如果后端方法不存在，使用前端统计
+        console.warn('后端刷新失败，使用前端统计:', err)
+        await this.updateTagStats()
+        this.setStatus(`标签统计已刷新，共 ${this.tags.length} 个标签`, 'success')
+      }
     },
     
     parseTags(content) {
